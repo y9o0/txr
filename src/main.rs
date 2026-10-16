@@ -11,6 +11,8 @@ fn handle_keys() -> anyhow::Result<()> {
     start()?;
 
     let mut cursor = Cursor::new();
+    let mut text: Vec<char> = Vec::new();
+    let mut string: Vec<Vec<char>> = Vec::new();
 
     while let Ok(ref readed) = read() {
         match readed {
@@ -20,36 +22,56 @@ fn handle_keys() -> anyhow::Result<()> {
             }
             Event::Key(KeyEvent {
                 code: KeyCode::Char(c),
+                modifiers: KeyModifiers::NONE,
+                state: KeyEventState::NONE,
                 ..
             }) => {
-                cursor.current += 1;
+                cursor.coulmen += 1;
 
                 print!("{}", c);
                 stdout().flush()?;
 
-                cursor.last_position = cursor.current;
+                text.push(*c);
             }
             x if x == &key_case(KeyCode::Left, None) => {
-                if cursor.current != 0 {
-                    cursor.current -= 1;
+                if cursor.coulmen != 1 {
+                    cursor.coulmen -= 1;
                     stdout().execute(MoveLeft(1))?;
-                } else if cursor.row != 0 && cursor.current == 0 {
+                } else if cursor.row > 0
+                    && cursor.coulmen == 1
+                    && let Some(txt) = string.get((cursor.row - 1) as usize)
+                {
+                    cursor.coulmen = (txt.len() + 1) as u8;
                     cursor.row -= 1;
 
                     if readed.is_key_press() {
-                        stdout().execute(MoveUp(1))?;
+                        stdout().execute(MoveTo((cursor.coulmen - 1) as u16, cursor.row as u16))?;
                     }
                 }
             }
             x if x == &key_case(KeyCode::Right, None) => {
-                if cursor.current < cursor.last_position {
-                    cursor.current += 1;
+                if cursor.coulmen
+                    < (string
+                        .get(cursor.row as usize)
+                        .unwrap_or_else(|| &text)
+                        .len()
+                        + 1) as u8
+                {
+                    cursor.coulmen += 1;
                     stdout().execute(MoveRight(1))?;
+                } else if (cursor.row as usize) < string.len() {
+                    cursor.row += 1;
+                    cursor.coulmen = 1;
+                    stdout().execute(MoveTo(0, cursor.row as u16))?;
                 }
             }
             x if x == &key_case(KeyCode::Enter, None) => {
                 cursor.row += 1;
-                cursor.current = 0;
+
+                let prev_txt = std::mem::replace(&mut text, Vec::new());
+                string.push(prev_txt);
+
+                cursor.coulmen = 1;
 
                 println!();
                 stdout().execute(MoveToColumn(0))?;
