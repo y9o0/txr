@@ -1,4 +1,5 @@
 mod def;
+use crossterm::cursor::{MoveDown, MoveUp};
 use def::*;
 
 fn main() -> anyhow::Result<()> {
@@ -34,34 +35,33 @@ fn handle_keys() -> anyhow::Result<()> {
                 text.push(*c);
             }
             x if x == &key_case(KeyCode::Left, None) => {
-                if cursor.coulmen != 1 {
+                if cursor.coulmen != 0 {
                     cursor.coulmen -= 1;
                     stdout().execute(MoveLeft(1))?;
                 } else if cursor.row > 0
-                    && cursor.coulmen == 1
+                    && cursor.coulmen == 0
                     && let Some(txt) = string.get((cursor.row - 1) as usize)
                 {
-                    cursor.coulmen = (txt.len() + 1) as u8;
+                    cursor.coulmen = txt.len() as u8;
                     cursor.row -= 1;
 
                     if readed.is_key_press() {
-                        stdout().execute(MoveTo((cursor.coulmen - 1) as u16, cursor.row as u16))?;
+                        stdout().execute(MoveTo(cursor.coulmen as u16, cursor.row as u16))?;
                     }
                 }
             }
             x if x == &key_case(KeyCode::Right, None) => {
                 if cursor.coulmen
-                    < (string
+                    < string
                         .get(cursor.row as usize)
                         .unwrap_or_else(|| &text)
-                        .len()
-                        + 1) as u8
+                        .len() as u8
                 {
                     cursor.coulmen += 1;
                     stdout().execute(MoveRight(1))?;
                 } else if (cursor.row as usize) < string.len() {
                     cursor.row += 1;
-                    cursor.coulmen = 1;
+                    cursor.coulmen = 0;
                     stdout().execute(MoveTo(0, cursor.row as u16))?;
                 }
             }
@@ -71,10 +71,47 @@ fn handle_keys() -> anyhow::Result<()> {
                 let prev_txt = std::mem::replace(&mut text, Vec::new());
                 string.push(prev_txt);
 
-                cursor.coulmen = 1;
+                cursor.coulmen = 0;
 
                 println!();
                 stdout().execute(MoveToColumn(0))?;
+            }
+            x if x == &key_case(KeyCode::Up, None) => {
+                let before_jump = cursor.coulmen;
+
+                if cursor.row != 0 {
+                    cursor.row -= 1;
+
+                    let len = string[cursor.row as usize].len();
+                    let exists = string[cursor.row as usize].get(before_jump as usize);
+
+                    if exists.is_some() {
+                        stdout().execute(MoveUp(1))?;
+                    } else {
+                        cursor.coulmen = len as u8;
+                        stdout().execute(MoveTo(cursor.coulmen as u16, cursor.row as u16))?;
+                    }
+                }
+            }
+            x if x == &key_case(KeyCode::Down, None) => {
+                let before_jump = cursor.coulmen;
+
+                if cursor.row < string.len() as u8 {
+                    cursor.row += 1;
+
+                    let len = string.get(cursor.row as usize).unwrap_or(&text).len();
+                    let exists = string
+                        .get(cursor.row as usize)
+                        .unwrap_or(&text)
+                        .get(before_jump as usize);
+
+                    if exists.is_some() {
+                        stdout().execute(MoveDown(1))?;
+                    } else {
+                        cursor.coulmen = len as u8;
+                        stdout().execute(MoveTo(cursor.coulmen as u16, cursor.row as u16))?;
+                    }
+                }
             }
             _ => {}
         }

@@ -18,6 +18,6 @@ pub struct Cursor {
 
 impl Cursor {
     pub fn new() -> Self {
-        Self { row: 0, coulmen: 1 }
+        Self { row: 0, coulmen: 0 }
     }
 }
